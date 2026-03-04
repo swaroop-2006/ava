@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>PHANTOM — Anonymous Messenger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bebas+Neue&family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════
+   RESET & TOKENS
+═══════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#0d0d12;
+  --paper:#f4f1eb;
+  --surface:#ffffff;
+  --border:#e2ddd4;
+  --ghost:#b8b3aa;
+  --smoke:#6b6660;
+  --char:#1a1a22;
+  --red:#e8392a;
+  --green:#2a9d5c;
+  --amber:#d97706;
+  --mono:'DM Mono',monospace;
+  --display:'Bebas Neue',sans-serif;
+  --body:'Manrope',sans-serif;
+  --r:10px;
+}
+
+/* ═══════════════════════════════════════════
+   BASE
+═══════════════════════════════════════════ */
+html{font-size:16px;-webkit-font-smoothing:antialiased}
+body{
+  font-family:var(--body);
+  background:var(--paper);
+  color:var(--char);
+  min-height:100vh;
+  display:grid;
+  grid-template-rows:auto 1fr auto;
+  position:relative;
+  overflow-x:hidden;
+}
+
+/* grain texture */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:0;opacity:.5;
+}
+
+/* ═══════════════════════════════════════════
+   HEADER
+═══════════════════════════════════════════ */
+header{
+  position:relative;z-index:10;
+  border-bottom:1px solid var(--border);
+  padding:0 clamp(1rem,4vw,3rem);
+  display:flex;align-items:center;justify-content:space-between;
+  gap:1rem;
+  background:rgba(244,241,235,0.92);
+  backdrop-filter:blur(12px);
+  height:64px;
+}
+.logo{
+  font-family:var(--display);
+  font-size:2rem;
+  letter-spacing:0.04em;
+  color:var(--ink);
+  display:flex;align-items:center;gap:0.5rem;
+}
+.logo-ghost{
+  width:28px;height:28px;
+  background:var(--ink);
+  border-radius:50% 50% 40% 40%;
+  position:relative;display:inline-block;
+  flex-shrink:0;
+}
+.logo-ghost::before,.logo-ghost::after{
+  content:'';position:absolute;
+  background:var(--paper);
+  border-radius:50%;
+  width:8px;height:8px;
+  top:8px;
+}
+.logo-ghost::before{left:5px}
+.logo-ghost::after{right:5px}
+
+.header-id{
+  display:flex;align-items:center;gap:0.6rem;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:50px;
+  padding:0.4rem 0.8rem 0.4rem 1rem;
+}
+.header-id-label{
+  font-size:0.65rem;font-weight:600;
+  text-transform:uppercase;letter-spacing:0.1em;
+  color:var(--ghost);
+}
+.header-id-value{
+  font-family:var(--mono);
+  font-size:0.78rem;
+  color:var(--char);
+  font-weight:500;
+}
+.header-copy{
+  background:var(--ink);color:var(--paper);
+  border:none;border-radius:50px;
+  font-family:var(--body);font-size:0.7rem;font-weight:600;
+  letter-spacing:0.06em;text-transform:uppercase;
+  padding:0.35rem 0.8rem;cursor:pointer;
+  transition:all .2s;white-space:nowrap;
+}
+.header-copy:hover{background:var(--red);transform:scale(1.03)}
+.header-copy.copied{background:var(--green)}
+
+/* ═══════════════════════════════════════════
+   MAIN LAYOUT
+═══════════════════════════════════════════ */
+main{
+  position:relative;z-index:1;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  height:calc(100vh - 64px - 48px);
+  overflow:hidden;
+}
+@media(max-width:720px){
+  main{grid-template-columns:1fr;height:auto}
+  body{grid-template-rows:auto auto 1fr auto}
+}
+
+/* ═══════════════════════════════════════════
+   PANELS
+═══════════════════════════════════════════ */
+.panel{
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+.panel-left{border-right:1px solid var(--border)}
+.panel-header{
+  padding:1.5rem clamp(1rem,3vw,2rem) 1rem;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:0.75rem;
+  flex-shrink:0;
+}
+.panel-icon{
+  width:36px;height:36px;border-radius:8px;
+  display:grid;place-items:center;
+  font-size:1rem;flex-shrink:0;
+}
+.panel-icon.send-icon{background:#fff0ee;border:1px solid #fcd5cf}
+.panel-icon.recv-icon{background:#eef8f2;border:1px solid #c3e8d3}
+.panel-title{
+  font-weight:700;font-size:0.95rem;letter-spacing:-0.01em;
+}
+.panel-subtitle{
+  font-size:0.72rem;color:var(--smoke);margin-top:1px;
+}
+.panel-body{
+  flex:1;overflow-y:auto;
+  padding:1.5rem clamp(1rem,3vw,2rem);
+  display:flex;flex-direction:column;
+  gap:1rem;
+}
+
+/* ═══════════════════════════════════════════
+   FORM ELEMENTS
+═══════════════════════════════════════════ */
+.field{display:flex;flex-direction:column;gap:0.4rem}
+.field-label{
+  font-size:0.7rem;font-weight:600;
+  text-transform:uppercase;letter-spacing:0.1em;
+  color:var(--smoke);
+}
+.field-input,.field-textarea{
+  font-family:var(--mono);font-size:0.85rem;
+  background:var(--surface);
+  border:1.5px solid var(--border);
+  border-radius:var(--r);
+  color:var(--char);
+  padding:0.75rem 1rem;
+  outline:none;
+  transition:border-color .2s,box-shadow .2s;
+  width:100%;
+}
+.field-input::placeholder,.field-textarea::placeholder{color:var(--ghost)}
+.field-input:focus,.field-textarea:focus{
+  border-color:var(--ink);
+  box-shadow:0 0 0 3px rgba(13,13,18,.07);
+}
+.field-textarea{resize:none;height:120px;line-height:1.6}
+
+/* char counter */
+.char-counter{
+  font-family:var(--mono);font-size:0.68rem;
+  color:var(--ghost);text-align:right;
+  transition:color .2s;
+}
+.char-counter.warn{color:var(--amber)}
+.char-counter.over{color:var(--red)}
+
+/* ─── Send Button ─── */
+.send-btn{
+  position:relative;overflow:hidden;
+  background:var(--ink);color:var(--paper);
+  border:none;border-radius:var(--r);
+  font-family:var(--body);font-weight:700;
+  font-size:0.9rem;letter-spacing:0.02em;
+  padding:0.9rem 1.5rem;
+  cursor:pointer;
+  transition:all .2s;
+  display:flex;align-items:center;justify-content:center;gap:0.5rem;
+}
+.send-btn::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,transparent 40%,rgba(255,255,255,0.06));
+}
+.send-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 16px rgba(13,13,18,.25)}
+.send-btn:active:not(:disabled){transform:translateY(0)}
+.send-btn:disabled{opacity:.5;cursor:not-allowed}
+.send-btn .btn-icon{font-size:1rem}
+.send-btn.loading .btn-text::after{
+  content:'';display:inline-block;
+  width:12px;height:12px;
+  border:2px solid rgba(244,241,235,.3);
+  border-top-color:var(--paper);
+  border-radius:50%;
+  animation:spin .7s linear infinite;
+  margin-left:8px;vertical-align:middle;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ─── Toast ─── */
+.toast{
+  display:flex;align-items:flex-start;gap:0.6rem;
+  padding:0.85rem 1rem;border-radius:var(--r);
+  font-size:0.82rem;line-height:1.45;
+  animation:toastIn .25s ease;
+  opacity:1;transition:opacity .3s;
+}
+.toast.hidden{display:none}
+.toast.success{background:#eef8f2;border:1px solid #c3e8d3;color:#1a5c38}
+.toast.error  {background:#fff0ee;border:1px solid #fcd5cf;color:#8b1a0e}
+.toast-icon{font-size:1rem;flex-shrink:0;margin-top:1px}
+@keyframes toastIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+
+/* ═══════════════════════════════════════════
+   INBOX
+═══════════════════════════════════════════ */
+.inbox-actions{
+  display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;
+}
+.refresh-btn{
+  background:transparent;
+  border:1.5px solid var(--border);
+  border-radius:50px;
+  font-family:var(--body);font-size:0.75rem;font-weight:600;
+  letter-spacing:0.04em;
+  color:var(--smoke);
+  padding:0.45rem 1rem;cursor:pointer;
+  transition:all .2s;
+  display:flex;align-items:center;gap:0.4rem;
+}
+.refresh-btn:hover{border-color:var(--ink);color:var(--ink)}
+.refresh-btn.spinning .refresh-icon{animation:spin .7s linear infinite;display:inline-block}
+.badge{
+  background:var(--ink);color:var(--paper);
+  font-family:var(--mono);font-size:0.65rem;font-weight:500;
+  padding:0.2rem 0.55rem;border-radius:50px;
+}
+.badge.hidden{display:none}
+
+/* ─── Message Cards ─── */
+.messages-list{
+  display:flex;flex-direction:column;gap:0.75rem;
+  flex:1;overflow-y:auto;
+}
+.empty-state{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:0.5rem;color:var(--ghost);
+  text-align:center;padding:2rem;
+}
+.empty-icon{font-size:2.5rem;opacity:.4}
+.empty-text{font-size:0.82rem}
+.empty-hint{font-family:var(--mono);font-size:0.7rem;color:var(--border)}
+
+.msg-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:1rem;
+  animation:cardIn .3s ease;
+  transition:border-color .2s;
+}
+.msg-card:hover{border-color:var(--ink)}
+@keyframes cardIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+.msg-text{
+  font-size:0.88rem;line-height:1.65;
+  color:var(--char);
+  word-break:break-word;
+  margin-bottom:0.75rem;
+}
+
+.msg-meta{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:0.5rem;
+}
+.msg-timer-text{
+  font-family:var(--mono);font-size:0.68rem;
+  color:var(--smoke);
+  transition:color .3s;
+}
+.msg-timer-text.urgent{color:var(--red)}
+.msg-timer-text.warn  {color:var(--amber)}
+
+.msg-timer-bar{
+  height:3px;background:var(--border);
+  border-radius:2px;overflow:hidden;
+  margin-top:0.5rem;
+}
+.msg-timer-fill{
+  height:100%;border-radius:2px;
+  background:var(--ink);
+  transition:width 1s linear,background .5s;
+}
+.msg-timer-fill.urgent{background:var(--red)}
+.msg-timer-fill.warn  {background:var(--amber)}
+
+/* vanish animation */
+.msg-card.vanishing{
+  animation:vanish .6s ease forwards;
+}
+@keyframes vanish{
+  0%{opacity:1;transform:scale(1)}
+  40%{opacity:.3;transform:scale(.98) translateX(12px)}
+  100%{opacity:0;transform:scale(.95) translateX(20px);max-height:0;padding:0;margin:0}
+}
+
+/* ═══════════════════════════════════════════
+   MOBILE NAV
+═══════════════════════════════════════════ */
+.mobile-tabs{
+  display:none;
+  border-bottom:1px solid var(--border);
+  background:rgba(244,241,235,0.95);
+}
+@media(max-width:720px){
+  .mobile-tabs{display:flex}
+  .mobile-tab{
+    flex:1;padding:0.85rem;
+    background:transparent;border:none;
+    font-family:var(--body);font-size:0.8rem;font-weight:600;
+    color:var(--ghost);cursor:pointer;
+    border-bottom:2px solid transparent;
+    transition:all .2s;
+  }
+  .mobile-tab.active{color:var(--ink);border-bottom-color:var(--ink)}
+  main{height:auto}
+  .panel{height:calc(100vh - 64px - 44px - 40px)}
+  .panel.hidden-mobile{display:none}
+}
+
+/* ═══════════════════════════════════════════
+   FOOTER
+═══════════════════════════════════════════ */
+footer{
+  position:relative;z-index:10;
+  height:48px;
+  border-top:1px solid var(--border);
+  background:rgba(244,241,235,0.92);
+  backdrop-filter:blur(12px);
+  display:flex;align-items:center;justify-content:center;
+  gap:1.5rem;
+}
+.footer-item{
+  font-family:var(--mono);font-size:0.65rem;
+  color:var(--ghost);
+  display:flex;align-items:center;gap:0.3rem;
+}
+.footer-dot{
+  width:5px;height:5px;border-radius:50%;
+  background:var(--green);
+  animation:pulse 2s ease infinite;
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ═══════════════════════════════════════════
+   SCROLLBAR
+═══════════════════════════════════════════ */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+</style>
+</head>
+<body>
+
+<!-- ══════════ HEADER ══════════ -->
+<header>
+  <div class="logo">
+    <span class="logo-ghost"></span>
+    PHANTOM
+  </div>
+  <div class="header-id">
+    <span class="header-id-label">Your ID</span>
+    <span class="header-id-value" id="headerUserId">—</span>
+    <button class="header-copy" id="copyBtn" onclick="copyUserId()">Copy</button>
+  </div>
+</header>
+
+<!-- ══════════ MOBILE TABS ══════════ -->
+<nav class="mobile-tabs">
+  <button class="mobile-tab active" onclick="switchTab('send')">📤 Send</button>
+  <button class="mobile-tab" onclick="switchTab('inbox')">📥 Inbox <span id="mobileBadge" class="badge hidden">0</span></button>
+</nav>
+
+<!-- ══════════ MAIN ══════════ -->
+<main>
+
+  <!-- SEND PANEL -->
+  <section class="panel panel-left" id="sendPanel">
+    <div class="panel-header">
+      <div class="panel-icon send-icon">📤</div>
+      <div>
+        <div class="panel-title">Send a Ghost Message</div>
+        <div class="panel-subtitle">Vanishes in 5 minutes · no trace of sender</div>
+      </div>
+    </div>
+    <div class="panel-body">
+
+      <div class="field">
+        <label class="field-label" for="receiverId">Receiver's ID</label>
+        <input
+          class="field-input"
+          id="receiverId"
+          type="text"
+          placeholder="Paste their ID here…"
+          maxlength="64"
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="messageText">Message</label>
+        <textarea
+          class="field-textarea"
+          id="messageText"
+          placeholder="Type your ghost message…"
+          maxlength="1000"
+          oninput="updateCounter()"
+        ></textarea>
+        <div class="char-counter" id="charCounter">0 / 1000</div>
+      </div>
+
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+        <span class="btn-icon">👻</span>
+        <span class="btn-text">Send &amp; Vanish</span>
+      </button>
+
+      <div class="toast hidden" id="sendToast">
+        <span class="toast-icon"></span>
+        <span class="toast-msg"></span>
+      </div>
+
+      <!-- How it works -->
+      <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border)">
+        <div style="font-size:0.72rem;color:var(--ghost);line-height:1.8">
+          <strong style="color:var(--smoke);display:block;margin-bottom:0.3rem">HOW IT WORKS</strong>
+          1. Share your ID with someone<br>
+          2. They paste your ID above and type a message<br>
+          3. You check your inbox — message vanishes in 5 min<br>
+          4. No sender stored. No history kept.
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- INBOX PANEL -->
+  <section class="panel" id="inboxPanel">
+    <div class="panel-header">
+      <div class="panel-icon recv-icon">📥</div>
+      <div>
+        <div class="panel-title">Inbox</div>
+        <div class="panel-subtitle">Auto-refreshes every 20 seconds</div>
+      </div>
+    </div>
+    <div class="panel-body">
+
+      <div class="inbox-actions">
+        <button class="refresh-btn" id="refreshBtn" onclick="fetchMessages()">
+          <span class="refresh-icon">↻</span> Refresh
+        </button>
+        <span class="badge hidden" id="countBadge">0</span>
+      </div>
+
+      <div class="messages-list" id="messagesList">
+        <div class="empty-state">
+          <div class="empty-icon">👻</div>
+          <div class="empty-text">No messages yet</div>
+          <div class="empty-hint">Share your ID to receive one</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+<!-- ══════════ FOOTER ══════════ -->
+<footer>
+  <div class="footer-item"><span class="footer-dot"></span> End-to-end anonymous</div>
+  <div class="footer-item">⏱ 5-min auto-delete</div>
+  <div class="footer-item">🔒 No logs kept</div>
+</footer>
+
+<script>
+// ════════════════════════════════════════════
+//  CONFIG — replace with your API Gateway URL
+// ════════════════════════════════════════════
+const API = 'https://v3ns4jbbf3.execute-api.us-east-1.amazonaws.com/prod';
+// ════════════════════════════════════════════
+
+const MESSAGE_LIFETIME = 300;
+let myId = '';
+let timers = {};
+let refreshInterval;
+
+// ─── Init ───────────────────────────────────
+function init() {
+  // Persist ID within the session
+  let id = sessionStorage.getItem('phantom_id');
+  if (!id) {
+    id = Array.from(crypto.getRandomValues(new Uint8Array(5)))
+              .map(b => b.toString(16).padStart(2,'0')).join('');
+    sessionStorage.setItem('phantom_id', id);
+  }
+  myId = id;
+  document.getElementById('headerUserId').textContent = id;
+  fetchMessages();
+  refreshInterval = setInterval(fetchMessages, 20000);
+}
+
+// ─── Copy user ID ────────────────────────────
+function copyUserId() {
+  navigator.clipboard.writeText(myId).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+// ─── Char counter ────────────────────────────
+function updateCounter() {
+  const len = document.getElementById('messageText').value.length;
+  const el  = document.getElementById('charCounter');
+  el.textContent = `${len} / 1000`;
+  el.className = 'char-counter' + (len > 950 ? ' over' : len > 800 ? ' warn' : '');
+}
+
+// ─── Send message ────────────────────────────
+async function sendMessage() {
+  const receiverId = document.getElementById('receiverId').value.trim();
+  const message    = document.getElementById('messageText').value.trim();
+  const btn        = document.getElementById('sendBtn');
+
+  if (!receiverId) return showToast('send', 'error', '⚠️', 'Enter the receiver\'s ID first.');
+  if (!message)    return showToast('send', 'error', '⚠️', 'Message cannot be empty.');
+  if (receiverId === myId) return showToast('send', 'error', '⚠️', 'You can\'t send a message to yourself.');
+
+  btn.disabled = true;
+  btn.classList.add('loading');
+
+  try {
+    const res  = await fetch(`${API}/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ receiver_id: receiverId, message })
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      showToast('send', 'success', '✓', 'Message sent — it will vanish in 5 minutes.');
+      document.getElementById('receiverId').value = '';
+      document.getElementById('messageText').value = '';
+      updateCounter();
+    } else {
+      showToast('send', 'error', '✗', data.error || 'Failed to send message.');
+    }
+  } catch {
+    showToast('send', 'error', '✗', 'Cannot reach server. Is the API URL set?');
+  }
+
+  btn.disabled = false;
+  btn.classList.remove('loading');
+}
+
+// ─── Fetch inbox ─────────────────────────────
+async function fetchMessages() {
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+
+  try {
+    const res  = await fetch(`${API}/receive?user_id=${myId}`);
+    const data = await res.json();
+    renderMessages(data.messages || []);
+  } catch {
+    // silent fail on auto-refresh
+  }
+
+  btn.classList.remove('spinning');
+}
+
+// ─── Render messages ─────────────────────────
+function renderMessages(messages) {
+  const list = document.getElementById('messagesList');
+
+  // Clear previous timers
+  Object.values(timers).forEach(clearInterval);
+  timers = {};
+
+  // Update badges
+  const count = messages.length;
+  ['countBadge','mobileBadge'].forEach(id => {
+    const el = document.getElementById(id);
+    el.textContent = count;
+    el.classList.toggle('hidden', count === 0);
+  });
+
+  if (count === 0) {
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">👻</div>
+        <div class="empty-text">No messages yet</div>
+        <div class="empty-hint">Share your ID to receive one</div>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = messages.map(m => buildCard(m)).join('');
+
+  // Start countdown timers
+  messages.forEach(m => startTimer(m.message_id, m.seconds_left, m.expires_in));
+}
+
+function buildCard(m) {
+  const pct = Math.round((m.seconds_left / m.expires_in) * 100);
+  const cls = pct < 20 ? 'urgent' : pct < 50 ? 'warn' : '';
+  return `
+    <div class="msg-card" id="card-${m.message_id}">
+      <div class="msg-text">${escHtml(m.message)}</div>
+      <div class="msg-meta">
+        <span class="msg-timer-text ${cls}" id="timer-${m.message_id}">
+          ${fmtTime(m.seconds_left)}
+        </span>
+      </div>
+      <div class="msg-timer-bar">
+        <div class="msg-timer-fill ${cls}" id="bar-${m.message_id}" style="width:${pct}%"></div>
+      </div>
+    </div>`;
+}
+
+function startTimer(id, secondsLeft, lifetime) {
+  let s = secondsLeft;
+  timers[id] = setInterval(() => {
+    s--;
+    const timerEl = document.getElementById(`timer-${id}`);
+    const barEl   = document.getElementById(`bar-${id}`);
+    const cardEl  = document.getElementById(`card-${id}`);
+
+    if (s <= 0) {
+      clearInterval(timers[id]);
+      if (cardEl) {
+        cardEl.classList.add('vanishing');
+        setTimeout(() => {
+          cardEl.remove();
+          const list = document.getElementById('messagesList');
+          if (!list.querySelector('.msg-card')) {
+            list.innerHTML = `
+              <div class="empty-state">
+                <div class="empty-icon">👻</div>
+                <div class="empty-text">All messages have vanished</div>
+                <div class="empty-hint">Share your ID to receive more</div>
+              </div>`;
+            ['countBadge','mobileBadge'].forEach(bid => {
+              document.getElementById(bid).classList.add('hidden');
+            });
+          }
+        }, 600);
+      }
+      return;
+    }
+
+    const pct = Math.round((s / lifetime) * 100);
+    const cls = pct < 20 ? 'urgent' : pct < 50 ? 'warn' : '';
+
+    if (timerEl) { timerEl.textContent = fmtTime(s); timerEl.className = `msg-timer-text ${cls}`; }
+    if (barEl)   { barEl.style.width = pct + '%'; barEl.className = `msg-timer-fill ${cls}`; }
+  }, 1000);
+}
+
+// ─── Toast notifications ──────────────────────
+function showToast(panel, type, icon, msg) {
+  const el = document.getElementById(`${panel}Toast`);
+  el.className = `toast ${type}`;
+  el.querySelector('.toast-icon').textContent = icon;
+  el.querySelector('.toast-msg').textContent  = msg;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.add('hidden'), 5000);
+}
+
+// ─── Mobile tab switch ────────────────────────
+function switchTab(tab) {
+  const sendPanel  = document.getElementById('sendPanel');
+  const inboxPanel = document.getElementById('inboxPanel');
+  const tabs       = document.querySelectorAll('.mobile-tab');
+
+  if (tab === 'send') {
+    sendPanel.classList.remove('hidden-mobile');
+    inboxPanel.classList.add('hidden-mobile');
+    tabs[0].classList.add('active'); tabs[1].classList.remove('active');
+  } else {
+    sendPanel.classList.add('hidden-mobile');
+    inboxPanel.classList.remove('hidden-mobile');
+    tabs[0].classList.remove('active'); tabs[1].classList.add('active');
+    fetchMessages();
+  }
+}
+
+// ─── Helpers ──────────────────────────────────
+function fmtTime(s) {
+  const m = Math.floor(s / 60), sec = s % 60;
+  return `Vanishes in ${m}m ${String(sec).padStart(2,'0')}s`;
+}
+function escHtml(t) {
+  const d = document.createElement('div');
+  d.appendChild(document.createTextNode(t));
+  return d.innerHTML;
+}
+
+init();
+</script>
+</body>
+</html>
